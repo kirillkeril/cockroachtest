@@ -54,6 +54,7 @@ module.exports = {
 					"GET /vehicles": "vehicles.getClosest",
 					"POST /ride": "vehicles.startRide",
 					"PATCH /ride": "vehicles.endRide",
+					"PATCH /vehicle/:vehicleId": "vehicles.updateStatus",
 				},
 
 				/**

@@ -1,6 +1,15 @@
 const DbMixin = require("../mixins/db.mixin");
 const {DataTypes} = require("sequelize");
 const {v4} = require("uuid");
+
+const statuses = {
+	inUse: "in_use",
+	available: "available",
+	potentiallyBroken: "potentially_broken",
+	broken: "broken",
+	lost: "lost",
+};
+
 module.exports = {
 	name: "vehicles",
 	mixins: [DbMixin()],
@@ -14,7 +23,14 @@ module.exports = {
 				},
 				status: {
 					type: "string",
-					default: "available",
+					default: statuses.available,
+					enum: [
+						statuses.broken,
+						statuses.lost,
+						statuses.inUse,
+						statuses.available,
+						statuses.potentiallyBroken,
+					],
 				}
 			},
 			async handler(ctx) {
@@ -64,8 +80,8 @@ module.exports = {
 					if (!vehicle) {
 						throw new Error("vehicle not found");
 					}
-					if (vehicle.status === statuses.inUse) {
-						throw new Error("vehicle already in use");
+					if (vehicle.status !== statuses.available) {
+						throw new Error("vehicle is not available");
 					}
 					vehicle.status = statuses.inUse;
 					await vehicle.save();
@@ -85,6 +101,11 @@ module.exports = {
 			params: {
 				rideId: "string",
 				endAddress: "string",
+				status: {
+					type: "string",
+					optional: true,
+					enum: [statuses.broken]
+				}
 			},
 			handler(ctx) {
 				return this.db.transaction(async () => {
@@ -99,7 +120,14 @@ module.exports = {
 					ride.endAddress = ctx.params.endAddress;
 					ride.endTime = Date.now();
 					ride.revenue = 49; // TODO calculate revenue
-					vehicle.status = statuses.available;
+
+					if (ctx.params.status === statuses.broken) {
+						vehicle.status = statuses.potentiallyBroken;
+						await ctx.broker.emit("vehicle.broken", {vehicleId: vehicle.id});
+					} else {
+						vehicle.status = statuses.available;
+					}
+
 					await Promise.all([
 						ride.save(),
 						vehicle.save(),
@@ -108,6 +136,37 @@ module.exports = {
 				});
 			}
 		},
+		updateStatus: {
+			params: {
+				vehicleId: "string",
+				status: {
+					type: "string",
+					enum: [statuses.available, statuses.broken, statuses.lost]
+				}
+			},
+			handler(ctx) {
+				return this.db.transaction(async () => {
+					const vehicle = await this.vehiclesRepository.findByPk(ctx.params.vehicleId);
+					if (!vehicle) {
+						throw new Error("vehicle not found");
+					}
+					const currentRide = await this.ridesRepository.findOne({
+						where: {
+							vehicleId: vehicle.id,
+							endTime: null,
+						}
+					});
+					vehicle.status = ctx.params.status;
+					await vehicle.save();
+					if (currentRide) { // if unfinished ride exists
+						currentRide.endTime = Date.now();
+						currentRide.revenue	= 49; // TODO calculate
+						await currentRide.save();
+					}
+					return vehicle;
+				});
+			}
+		}
 	},
 	created() {
 		this.vehiclesRepository = this.db.define("vehicle", {
@@ -200,11 +259,4 @@ module.exports = {
 			}
 		}, {timestamps: false});
 	}
-};
-
-const statuses = {
-	inUse: "in_use",
-	available: "available",
-	broken: "broken",
-	lost: "lost",
 };
