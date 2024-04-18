@@ -1,8 +1,10 @@
 const {DataTypes, Sequelize} = require("sequelize");
+const DbMixin = require("../mixins/db.mixin");
 const {v4} = require("uuid");
 
 module.exports = {
 	name: "users",
+	mixins: [DbMixin()],
 	settings: {
 		fields: [
 			"id",
@@ -44,32 +46,17 @@ module.exports = {
 					throw "user is not created";
 				}
 			}
+		},
+		"getById": {
+			params: {
+				id: "string"
+			},
+			handler(ctx) {
+				return this.userRepository.findByPk(ctx.params.id);
+			}
 		}
 	},
-	methods: {
-		async createUser(user) {
-			return this.userRepository.create({
-				id: v4(),
-				name: user.name,
-				city: user.city,
-				address: user.address,
-				creditCard: user.creditCard,
-			});
-		}
-	}
-	,
-	async created() {
-		this.db = new Sequelize(process.env.DATABASE_URL, {
-			database: process.env.DATABASE_NAME,
-			dialect: "postgres",
-		});
-		try {
-			await this.db.authenticate();
-			console.log("Connection has been established successfully.");
-		} catch (error) {
-			console.error("Unable to connect to the database:", error);
-			process.exit(1);
-		}
+	created() {
 		this.userRepository = this.db.define("user", {
 			id: {
 				type: DataTypes.UUID,
@@ -97,8 +84,16 @@ module.exports = {
 			timestamps: false,
 		});
 	},
-	stopped() {
-		this.db.close().then(r => this.broker.logger.info("closed connection to database"));
-	}
+	methods: {
+		async createUser(user) {
+			return this.userRepository.create({
+				id: v4(),
+				name: user.name,
+				city: user.city,
+				address: user.address,
+				creditCard: user.creditCard,
+			});
+		}
+	},
 }
 ;
