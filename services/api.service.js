@@ -3,11 +3,11 @@
 const ApiGateway = require("moleculer-web");
 
 /**
- * @typedef {import('moleculer').ServiceSchema} ServiceSchema Moleculer's Service Schema
- * @typedef {import('moleculer').Context} Context Moleculer's Context
- * @typedef {import('http').IncomingMessage} IncomingRequest Incoming HTTP Request
- * @typedef {import('http').ServerResponse} ServerResponse HTTP Server Response
- * @typedef {import('moleculer-web').ApiSettingsSchema} ApiSettingsSchema API Setting Schema
+ * @typedef {import("moleculer").ServiceSchema} ServiceSchema Moleculer's Service Schema
+ * @typedef {import("moleculer").Context} Context Moleculer's Context
+ * @typedef {import("http").IncomingMessage} IncomingRequest Incoming HTTP Request
+ * @typedef {import("http").ServerResponse} ServerResponse HTTP Server Response
+ * @typedef {import("moleculer-web").ApiSettingsSchema} ApiSettingsSchema API Setting Schema
  */
 
 module.exports = {
@@ -50,7 +50,11 @@ module.exports = {
 				autoAliases: true,
 
 				aliases: {
-
+					"POST /register": "users.create",
+					"GET /vehicles": "vehicles.getClosest",
+					"POST /ride": "vehicles.startRide",
+					"PATCH /ride": "vehicles.endRide",
+					"PATCH /vehicle/:vehicleId": "vehicles.updateStatus",
 				},
 
 				/**
@@ -134,24 +138,14 @@ module.exports = {
 		async authenticate(ctx, route, req) {
 			// Read the token from header
 			const auth = req.headers["authorization"];
-
-			if (auth && auth.startsWith("Bearer")) {
+			if (!auth) {
+				throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_INVALID_TOKEN);
+			}
+			if (auth.startsWith("Bearer")) {
 				const token = auth.slice(7);
 
 				// Check the token. Tip: call a service which verify the token. E.g. `accounts.resolveToken`
-				if (token == "123456") {
-					// Returns the resolved user. It will be set to the `ctx.meta.user`
-					return { id: 1, name: "John Doe" };
-
-				} else {
-					// Invalid token
-					throw new ApiGateway.Errors.UnAuthorizedError(ApiGateway.Errors.ERR_INVALID_TOKEN);
-				}
-
-			} else {
-				// No token. Throw an error or do nothing if anonymous access is allowed.
-				// throw new E.UnAuthorizedError(E.ERR_NO_TOKEN);
-				return null;
+				ctx.params.userId = auth;
 			}
 		},
 
