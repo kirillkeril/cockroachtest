@@ -81,8 +81,33 @@ module.exports = {
 				});
 			}
 		},
-		// updateStatus: {},
-		// endRide: {},
+		endRide: {
+			params: {
+				rideId: "string",
+				endAddress: "string",
+			},
+			handler(ctx) {
+				return this.db.transaction(async () => {
+					const ride = await this.ridesRepository.findByPk(ctx.params.rideId);
+					if (!ride) {
+						throw new Error("ride not found");
+					}
+					if (ride.endTime != null) {
+						throw new Error("ride already ended");
+					}
+					const vehicle = await this.vehiclesRepository.findByPk(ride.vehicleId);
+					ride.endAddress = ctx.params.endAddress;
+					ride.endTime = Date.now();
+					ride.revenue = 49; // TODO calculate revenue
+					vehicle.status = statuses.available;
+					await Promise.all([
+						ride.save(),
+						vehicle.save(),
+					]);
+					return ride;
+				});
+			}
+		},
 	},
 	created() {
 		this.vehiclesRepository = this.db.define("vehicle", {
