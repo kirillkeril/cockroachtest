@@ -50,7 +50,7 @@ module.exports = {
 				autoAliases: true,
 
 				aliases: {
-
+					"POST /register": "users.create",
 				},
 
 				/**

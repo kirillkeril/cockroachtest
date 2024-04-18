@@ -1,5 +1,6 @@
 "use strict";
-
+const {config} = require("dotenv");
+config();
 /**
  * Moleculer ServiceBroker configuration file
  *

@@ -1,4 +1,5 @@
-import {DataTypes, Sequelize} from "sequelize";
+const {DataTypes, Sequelize} = require("sequelize");
+const {v4} = require("uuid");
 
 module.exports = {
 	name: "users",
@@ -17,12 +18,46 @@ module.exports = {
 			"creditCard": "string",
 		}
 	},
-	actions: {},
-	methods: {
-		createUser(user) {
-
+	actions: {
+		"create": {
+			params: {
+				name: "string",
+				city: "string",
+				address: {
+					"type": "string",
+					"required": false,
+				},
+				creditCard: {
+					"type": "string",
+					"required": false,
+				},
+			},
+			async handler(ctx) {
+				try {
+					const createdUser = await this.createUser(ctx.params);
+					if (!createdUser) {
+						ctx.broker.logger.error("user can't be created: ", ctx.params);
+					}
+					return createdUser;
+				} catch (e) {
+					ctx.broker.logger.error(e);
+					throw "user is not created";
+				}
+			}
 		}
 	},
+	methods: {
+		async createUser(user) {
+			return this.userRepository.create({
+				id: v4(),
+				name: user.name,
+				city: user.city,
+				address: user.address,
+				creditCard: user.creditCard,
+			});
+		}
+	}
+	,
 	async created() {
 		this.db = new Sequelize(process.env.DATABASE_URL, {
 			database: process.env.DATABASE_NAME,
@@ -53,13 +88,17 @@ module.exports = {
 				type: DataTypes.STRING,
 				allowNull: true,
 			},
-			credit_card: {
+			creditCard: {
 				type: DataTypes.STRING,
 				allowNull: true,
+				field: "credit_card",
 			}
+		}, {
+			timestamps: false,
 		});
 	},
 	stopped() {
 		this.db.close().then(r => this.broker.logger.info("closed connection to database"));
 	}
-};
+}
+;
