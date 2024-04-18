@@ -52,6 +52,7 @@ module.exports = {
 				aliases: {
 					"POST /register": "users.create",
 					"GET /vehicles": "vehicles.getClosest",
+					"POST /ride": "vehicles.startRide",
 				},
 
 				/**
